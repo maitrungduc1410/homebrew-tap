@@ -1,0 +1,52 @@
+# Checks each app's latest GitHub release (pre-releases and drafts are skipped) and,
+# when it is newer than the cask, commits the new version and sha256.
+name: Bump
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bump
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Update casks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # One line per app: <cask file> <GitHub repo>
+          apps: |
+            Casks/native-screen.rb maitrungduc1410/NativeScreen
+        run: |
+          set -euo pipefail
+          while read -r file repo; do
+            [ -n "$file" ] || continue
+            tag=$(gh api "repos/$repo/releases/latest" --jq .tag_name)
+            new=${tag#v}
+            old=$(sed -nE 's/^  version "(.*)"$/\1/p' "$file")
+            if [ "$new" = "$old" ]; then
+              echo "$file: $old is current"
+              continue
+            fi
+            # The url line uses #{version}; fill it in to get this release's download.
+            url=$(sed -nE 's/^  url "(.*)"$/\1/p' "$file" | sed "s/#{version}/$new/g")
+            sha=$(curl -fsSL "$url" | sha256sum | cut -d' ' -f1)
+            sed -i -E "s/^  version \".*\"$/  version \"$new\"/; s/^  sha256 \".*\"$/  sha256 \"$sha\"/" "$file"
+            echo "$file: $old -> $new"
+            echo "- $(basename "$file" .rb) $new" >> "$RUNNER_TEMP/changes"
+          done <<< "$apps"
+
+          if [ -s "$RUNNER_TEMP/changes" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -am "chore: bump $(paste -sd, "$RUNNER_TEMP/changes" | sed 's/- //g; s/,/, /g')"
+            git push
+          fi
