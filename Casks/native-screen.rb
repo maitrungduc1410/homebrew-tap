@@ -1,6 +1,6 @@
 cask "native-screen" do
-  version "1.0.10"
-  sha256 "ef81bacdb4879f81750f879e0f0cc9767710a7aeb869501fe5b0e0c93e64de24"
+  version "1.0.12"
+  sha256 "6899d39a42062257e356ad965a6c27d45a56aa34f27ce1ccfe9bebdb0b3110fb"
 
   url "https://github.com/maitrungduc1410/NativeScreen/releases/download/v#{version}/NativeScreen.dmg"
   name "Native Screen"
